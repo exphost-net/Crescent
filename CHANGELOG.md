@@ -1,16 +1,10 @@
-## Crescent Alpha Release v0.1.1
+## Crescent Alpha Release v0.1.2
 
-Welcome to Crescent Alpha v.0.1.1! This version lays the foundation for our self-hosted finance dashboard, built to integrate seamlessly with Pterodactyl and Paymenter.
-
-### Features
-
-* **Dashboard:** Visualize your financial metrics.
-* **Incomings & Outgoings:** Track income and expenses by node.
-* **Machine Usage:** Monitor resource consumption.
+Welcome to Crescent Alpha v.0.1.2!
 
 ### Whats Changed?
 
-* 
+* Added Profit and Costs to Top Nodes on Dashboard 
 
 ### Security Vulnerabilities
 
