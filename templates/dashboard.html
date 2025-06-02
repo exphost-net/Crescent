@@ -145,6 +145,8 @@
                                     <span><i class="fas fa-memory"></i> {{ node.memory }} GB RAM</span>
                                     {% endif %}
                                     <span><i class="fas fa-dollar-sign"></i> ${{ node.revenue|float|round(2) }}</span>
+                                    <span><i class="fas fa-credit-card"></i> ${{ node.costs|float|round(2) }}</span>
+                                    <span><i class="fas fa-piggy-bank"></i> ${{ node.profit|float|round(2) }}</span>
                                 </div>
                             </div>
                             <div class="server-status {% if node.online %}status-online{% else %}status-offline{% endif %}">
