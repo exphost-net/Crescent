@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/dashboard.css">
     <link rel="stylesheet" href="/static/login.css">
+    <link rel="stylesheet" href="/static/incomings.css">
     <style>
         .main-content {
             flex: 1;
@@ -47,7 +48,7 @@
             pointer-events: none;
         }
 
-        
+
         @media (max-width: 768px) {
             .main-content {
                 margin-left: 0;
@@ -58,8 +59,6 @@
                 grid-template-columns: 1fr;
             }
         }
-
-
     </style>
     <link rel="stylesheet" href="/static/vars.css">
 </head>
@@ -106,7 +105,8 @@
                         <span class="menu-text">Settings</span>
                     </a>
                 </li>
-                {% if session['user_email'] and is_admin(session['user_email']) %}
+                {# CORRECTED: Use is_admin_status boolean #}
+                {% if session['user_email'] and is_admin_status %}
                 <li>
                     <a href="/admin">
                         <i class="fas fa-shield-halved"></i>
@@ -185,6 +185,42 @@
                     </form>
                 </div>
 
+                {% if is_admin_status %}
+                <div class="card glass">
+                    <h3 class="card-title"><i class="fa-dollar-sign"></i> Exchange Rates</h3>
+                    <div class="table" id="exchange-rates-table">
+                        <!-- Base currency selector -->
+                        <div class="table-row glass-row">
+                            <label for="base-currency" style="color:#fff; font-weight:600; margin-right:10px;">Default Currency:</label>
+                            <select id="base-currency" class="misc-name" style="max-width:120px;">
+                                {% for currency, rate in exchange_rates.items() %}
+                                <option value="{{ currency }}" {% if currency == base_currency %}selected{% endif %}>{{ currency }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" onclick="setBaseCurrency()" class="btn btn-update">Set as Default</button>
+                        </div>
+                        <!-- Add new exchange rate row -->
+                        <div class="table-row glass-row">
+                            <input type="text" id="new-currency-code" name="currency" placeholder="Currency (e.g. USD)" maxlength="3" class="misc-name" style="text-transform:uppercase;" required>
+                            <input type="number" step="0.0001" id="new-currency-rate" name="rate" placeholder="Rate" class="misc-cost" required>
+                            <input type="text" id="new-currency-symbol" name="symbol" placeholder="Symbol (e.g. $)" maxlength="3" class="misc-name currency-symbol" style="width:60px;" required>
+                            <button type="button" onclick="addExchangeRate()" class="btn btn-update">Add</button>
+                        </div>
+                        <!-- Existing exchange rates -->
+                        {% for currency, rate in exchange_rates.items() %}
+                        <div class="table-row glass-row" id="exchange-rate-{{ currency }}">
+                            <input type="text" class="misc-name currency-code" value="{{ currency }}" maxlength="3" style="text-transform:uppercase;" required>
+                            <input type="number" step="0.0001" class="misc-cost currency-rate" value="{{ rate.rate }}" required>
+                            <input type="text" class="misc-name currency-symbol" value="{{ rate.symbol }}" maxlength="3" style="width:60px;" required>
+                            <div class="misc-buttons">
+                                <button type="button" onclick="updateExchangeRate('{{ currency }}')" class="btn btn-update">Update</button>
+                                <button type="button" onclick="removeExchangeRate('{{ currency }}')" class="btn btn-danger">Remove</button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -193,6 +229,69 @@
         document.querySelector('.toggle-sidebar').addEventListener('click', function() {
             document.querySelector('.sidebar').classList.toggle('active');
         });
+
+        function addExchangeRate() {
+            const codeInput = document.getElementById('new-currency-code');
+            const rateInput = document.getElementById('new-currency-rate');
+            const symbolInput = document.getElementById('new-currency-symbol');
+            const code = codeInput.value.trim().toUpperCase();
+            const rate = rateInput.value.trim();
+            const symbol = symbolInput.value.trim();
+
+            if (code && rate && symbol) {
+                fetch('/add_exchange_rate_ajax', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code, rate: rate, symbol: symbol }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) location.reload();
+                    else alert('Failed to add exchange rate: ' + data.error);
+                });
+            } else {
+                alert('Please enter currency code, rate, and symbol.');
+            }
+        }
+
+        function updateExchangeRate(originalCode) {
+            const row = document.getElementById(`exchange-rate-${originalCode}`);
+            const codeInput = row.querySelector('.currency-code');
+            const rateInput = row.querySelector('.currency-rate');
+            const symbolInput = row.querySelector('.currency-symbol');
+            const newCode = codeInput.value.trim().toUpperCase();
+            const newRate = rateInput.value.trim();
+            const newSymbol = symbolInput.value.trim();
+
+            if (newCode && newRate && newSymbol) {
+                fetch('/update_exchange_rate_ajax', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ original_code: originalCode, new_code: newCode, new_rate: newRate, new_symbol: newSymbol }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) location.reload();
+                    else alert('Failed to update exchange rate: ' + data.error);
+                });
+            } else {
+                alert('Please enter currency code, rate, and symbol.');
+            }
+        }
+
+        function setBaseCurrency() {
+            const baseCurrency = document.getElementById('base-currency').value;
+            fetch('/set_base_currency', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base_currency: baseCurrency }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else alert('Failed to set base currency: ' + data.error);
+            });
+        }
     </script>
 </body>
 </html>

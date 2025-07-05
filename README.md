@@ -315,6 +315,34 @@ This section guides you through configuring Nginx to serve the Crescent applicat
 
 -----
 
+## 🔄 Updating Crescent
+
+To update Crescent to the latest version, follow these steps:
+
+1. **Download the latest release**:
+   ```bash
+   curl -Lo crescent.tar.gz https://github.com/exphost-net/Crescent/releases/latest/download/crescent.tar.gz
+   ```
+
+2. **Extract the downloaded archive**:
+   ```bash
+   tar -xzvf crescent.tar.gz
+   ```
+
+3. **Install updated Python dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Restart the Crescent service**:
+   ```bash
+   sudo systemctl restart crescent.service
+   ```
+
+That's it! Crescent should now be updated to the latest version.
+
+---
+
 ## 🛠 Tech Stack
 
   * Python / Flask (backend)

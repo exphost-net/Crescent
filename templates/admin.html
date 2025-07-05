@@ -40,8 +40,6 @@
             padding: 12px;
             border-radius: 12px;
         }
-
-
     </style>
 </head>
 <body>
@@ -62,7 +60,8 @@
                 <li><a href="/outgoings"><i class="fas fa-arrow-trend-down"></i> <span class="menu-text">Outgoings</span></a></li>
                 <li><a href="/node_usage"><i class="fas fa-server"></i> <span class="menu-text" id="machine-usage-link">Machine Usage</span></a></li>
                 <li><a href="/settings"><i class="fas fa-gear"></i> <span class="menu-text">Settings</span></a></li>
-                {% if session['user_email'] and is_admin(session['user_email']) %}
+                {# CORRECTED: Use is_admin_status boolean #}
+                {% if session['user_email'] and is_admin_status %}
                 <li><a href="/admin" class="active"><i class="fas fa-shield-halved"></i> <span class="menu-text">Admin</span></a></li>
                 {% endif %}
             </ul>
@@ -105,20 +104,22 @@
                             </div>
                         </form>
                         {% if users %}
-                            {% for email, user_data in users.items() %}
+                            {# CORRECTED: Iterate over 'users' directly as it's now a list of dictionaries #}
+                            {% for user in users %}
                             <div class="table-row glass-row">
-                                <div class="node-info"><strong>Email:</strong> {{ email }}</div>
+                                <div class="node-info"><strong>Email:</strong> {{ user.email }}</div> {# Access email using dot notation #}
                                 <form action="/admin/update_password" method="POST" style="display: inline;">
-                                    <input type="hidden" name="email" value="{{ email }}">
+                                    <input type="hidden" name="email" value="{{ user.email }}"> {# Use user.email #}
                                     <input type="password" name="password" placeholder="New Password">
                                     <button type="submit" class="btn btn-update">Update Password</button>
                                 </form>
                                 <form action="/admin/make_admin" method="POST" style="display: inline;">
-                                    <input type="hidden" name="email" value="{{ email }}">
-                                    <button type="submit" class="btn btn-danger">{% if user_data.is_admin %}Revoke Admin{% else %}Make Admin{% endif %}</button>
+                                    <input type="hidden" name="email" value="{{ user.email }}"> {# Use user.email #}
+                                    {# Access is_admin status directly from user object #}
+                                    <button type="submit" class="btn btn-danger">{% if user.is_admin %}Revoke Admin{% else %}Make Admin{% endif %}</button>
                                 </form>
                                 <form action="/admin/remove_user" method="POST" style="display: inline;">
-                                    <input type="hidden" name="email" value="{{ email }}">
+                                    <input type="hidden" name="email" value="{{ user.email }}"> {# Use user.email #}
                                     <button type="submit" class="btn btn-danger">Remove</button>
                                 </form>
                             </div>

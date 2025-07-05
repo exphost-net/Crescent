@@ -95,11 +95,15 @@
                                 {% if session['user_email'] and is_admin(session['user_email']) %}
                                 <form action="/update_machine_cost" method="POST" style="display: flex; align-items: center;">
                                     <input type="hidden" name="node_id" value="{{ node_id }}">
-                                    <input type="number" step="0.01" name="cost" placeholder="$0.00" value="{{ data.cost }}" required style="margin-right: 10px;">
+                                    <input type="number" step="0.01" name="cost" placeholder="{{ currency_symbol }}0.00" value="{{ data.cost }}" required style="margin-right: 10px;">
+                                    <input type="number" min="1" max="31" name="billing_day" placeholder="Day" value="{{ data.billing_day or '' }}" style="width: 70px; margin-right: 10px;" title="Billing Day (1-31)">
                                     <button type="submit" class="btn btn-update">Update</button>
                                 </form>
                                 {% else %}
-                                <div class="cost"><strong>Cost:</strong> ${{ '%.2f' % data.cost }}</div>
+                                <div class="cost"><strong>Cost:</strong> {{ currency_symbol }}{{ '%.2f' % data.cost }}</div>
+                                {% if data.billing_day %}
+                                <div class="billing-day"><strong>Billing Day:</strong> {{ data.billing_day }}</div>
+                                {% endif %}
                                 {% endif %}
                             </div>
                             {% endfor %}
@@ -115,7 +119,7 @@
                         {% if session['user_email'] and is_admin(session['user_email']) %}
                         <div class="table-row glass-row">
                             <input type="text" id="new-misc-name" name="name" placeholder="Name" required>
-                            <input type="number" step="0.01" id="new-misc-cost" name="cost" placeholder="$0.00" required>
+                            <input type="number" step="0.01" id="new-misc-cost" name="cost" placeholder="{{ currency_symbol }}0.00" required>
                             <button type="button" onclick="addMiscCost()" class="btn btn-update">Add</button>
                         </div>
                         {% endif %}
@@ -131,7 +135,7 @@
                                 </div>
                                 {% else %}
                                 <div class="misc-name"><strong>{{ name }}:</strong></div>
-                                <div class="misc-cost"><strong>Cost:</strong> ${{ '%.2f' % cost }}</div>
+                                <div class="misc-cost"><strong>Cost:</strong> {{ currency_symbol }}{{ '%.2f' % cost }}</div>
                                 {% endif %}
                             </div>
                             {% endfor %}
@@ -144,7 +148,7 @@
             </div>
             <div class="card profit glass" style="margin-top: 2rem;">
                 <h3 class="card-title"><i class="fas fa-piggy-bank"></i> Total Outgoings</h3>
-                <p><strong>Total:</strong> ${{ total_outgoings | default(0) | float | round(2) }}</p>
+                <p><strong>Total:</strong> {{ currency_symbol }}{{ total_outgoings | default(0) | float | round(2) }}</p>
             </div>
         </div>
     </div>

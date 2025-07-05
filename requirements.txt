@@ -4,3 +4,5 @@ python-dotenv
 requests
 werkzeug
 ping3
+pymysql
+sqlalchemy

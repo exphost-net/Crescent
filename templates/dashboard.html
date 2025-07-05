@@ -89,7 +89,7 @@
                         <i class="fas fa-dollar-sign"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>${{ '%.2f' % total_income }}</h3>
+                        <h3>{{ currency_symbol }}{{ '%.2f' % total_income }}</h3>
                         <p>Total Revenue</p>
                     </div>
                 </div>
@@ -99,7 +99,7 @@
                         <i class="fas fa-credit-card"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>${{ '%.2f' % total_cost }}</h3>
+                        <h3>{{ currency_symbol }}{{ '%.2f' % total_cost }}</h3>
                         <p>Total Costs</p>
                     </div>
                 </div>
@@ -109,7 +109,7 @@
                         <i class="fas fa-piggy-bank"></i>
                     </div>
                     <div class="stat-info">
-                        <h3>${{ '%.2f' % profit }}</h3>
+                        <h3>{{ currency_symbol }}{{ '%.2f' % profit }}</h3>
                         <p>Net Profit</p>
                     </div>
                 </div>
@@ -144,9 +144,9 @@
                                     {% if node.memory != '0.00' %}
                                     <span><i class="fas fa-memory"></i> {{ node.memory }} GB RAM</span>
                                     {% endif %}
-                                    <span><i class="fas fa-dollar-sign"></i> ${{ node.revenue|float|round(2) }}</span>
-                                    <span><i class="fas fa-credit-card"></i> ${{ node.costs|float|round(2) }}</span>
-                                    <span><i class="fas fa-piggy-bank"></i> ${{ node.profit|float|round(2) }}</span>
+                                    <span><i class="fas fa-dollar-sign"></i> {{ currency_symbol }}{{ node.revenue|float|round(2) }}</span>
+                                    <span><i class="fas fa-credit-card"></i> {{ currency_symbol }}{{ node.costs|float|round(2) }}</span>
+                                    <span><i class="fas fa-piggy-bank"></i> {{ currency_symbol }}{{ node.profit|float|round(2) }}</span>
                                 </div>
                             </div>
                             <div class="server-status {% if node.online %}status-online{% else %}status-offline{% endif %}">
