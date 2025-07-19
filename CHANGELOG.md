@@ -1,26 +1,11 @@
-## Crescent Alpha Release v0.2
+## Crescent Alpha Release v0.2.1
 
-Welcome to Crescent Alpha v.0.2!
+Welcome to Crescent Alpha v.0.2.1!
 
 ### What's Changed?
 
 #### Features
-* **Dynamic Currency Symbols**: Currency symbols now dynamically update based on the selected base currency across all pages, including `Outgoings` and `Incomings`.
-* **Support for Multiple Currencies**: Added support for multiple currencies with automatic conversion based on exchange rates.
-* **Coupon Integration**: Added coupon checking and display in the `Incomings` page.
-* **Customer Billing Dates**: Added customer billing dates in the `Incomings` page.
-* **Machine Billing Dates**: Added machine billing dates in the `Outgoings` page.
-
-#### Improvements
-* **Graceful Handling of Missing Data**: Crescent no longer crashes if no program (e.g., Paymenter or Pterodactyl) is connected. It now gracefully shows "No data available."
-* **UI Enhancements**: Updated the design of the `Outgoings`, `Incomings`, and `Settings` pages for better usability and responsiveness.
-* **Error Handling**: Improved error handling and user feedback for database and API-related issues.
-* **Code Refactoring**: Simplified and optimized backend logic for better maintainability.
-
-#### Bug Fixes
-* Fixed hardcoded `$` symbols in the `Outgoings` page to use dynamic currency symbols.
-* Resolved issues with orphaned machine costs in the `Outgoings` page.
-* Addressed inconsistencies in the `Incomings` page for displaying original prices and discounts.
+* **Database Port Selection**: Added port selection capability for Pterodactyl and Paymenter database connections in the .env configuration.
 
 ### Security Vulnerabilities
 
