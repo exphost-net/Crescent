@@ -26,6 +26,7 @@ paymenter_config = {
     'user': os.getenv('PAYMENTER_DB_USER'),
     'password': os.getenv('PAYMENTER_DB_PASSWORD'),
     'host': os.getenv('PAYMENTER_DB_HOST'),
+    'port': int(os.getenv('PAYMENTER_DB_PORT', '3306')),
     'database': os.getenv('PAYMENTER_DB_NAME')
 }
 
@@ -33,6 +34,7 @@ pterodactyl_config = {
     'user': os.getenv('PTERODACTYL_DB_USER'),
     'password': os.getenv('PTERODACTYL_DB_PASSWORD'),
     'host': os.getenv('PTERODACTYL_DB_HOST'),
+    'port': int(os.getenv('PTERODACTYL_DB_PORT', '3306')),
     'database': os.getenv('PTERODACTYL_DB_NAME')
 }
 
@@ -1353,6 +1355,7 @@ mysql_pool = pooling.MySQLConnectionPool(
     user=paymenter_config['user'],
     password=paymenter_config['password'],
     host=paymenter_config['host'],
+    port=paymenter_config['port'],
     database=paymenter_config['database'],
     autocommit=True
 )
@@ -1366,6 +1369,7 @@ def get_db_connection(config, connection_name=""):
                 user=config['user'],
                 password=config['password'],
                 host=config['host'],
+                port=config['port'],
                 database=config['database'],
                 autocommit=True
             )
