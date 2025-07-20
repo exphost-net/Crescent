@@ -40,6 +40,9 @@ app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_TYPE'] = 'filesystem'
 app.logger.setLevel(logging.INFO)
 
+# Configure logging to output DEBUG level logs to the console
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
 paymenter_config = {
     'user': os.getenv('PAYMENTER_DB_USER'),
     'password': os.getenv('PAYMENTER_DB_PASSWORD'),
@@ -600,7 +603,7 @@ def dashboard_page():
 
         total_servers = len(servers_data)
         
-        panel_url = os.getenv('PTERODACTYL_API_URL')
+        panel_url = sanitize_url(os.getenv('PTERODACTYL_API_URL'))
         api_key = os.getenv('PTERODACTYL_API_KEY')
         
         if not panel_url or not api_key:
@@ -666,23 +669,30 @@ def dashboard_page():
         def check_node_status(node_id, node_name, panel_url, headers):
             panel_node_url = f"{panel_url}/api/application/nodes/{node_id}"
             try:
+                logging.debug(f"Fetching node status for Node ID: {node_id}, Node Name: {node_name}, URL: {panel_node_url}")
                 panel_response = requests.get(panel_node_url, headers=headers, timeout=3)
+                logging.debug(f"Panel response status code: {panel_response.status_code}")
                 panel_response.raise_for_status()
                 node_data = panel_response.json().get('attributes', {})
-                
+                logging.debug(f"Node data fetched: {node_data}")
+
                 wings_fqdn = node_data.get('fqdn')
                 wings_port = node_data.get('daemon_listen', 8080)
-                
+                logging.debug(f"Wings FQDN: {wings_fqdn}, Wings Port: {wings_port}")
+
                 if wings_fqdn:
                     wings_url = f"https://{wings_fqdn}:{wings_port}"
+                    logging.debug(f"Checking Wings status at URL: {wings_url}")
                     try:
                         wings_response = requests.get(wings_url, timeout=2, verify=False)
+                        logging.debug(f"Wings response status code: {wings_response.status_code}")
                         if wings_response.status_code == 401:
                             return True
-                    except requests.exceptions.RequestException:
-                        pass
+                    except requests.exceptions.RequestException as e:
+                        logging.error(f"Error connecting to Wings at {wings_url}: {e}")
                 return False
-            except Exception:
+            except Exception as e:
+                logging.error(f"Error fetching node status for Node ID: {node_id}, Node Name: {node_name}: {e}")
                 return False
 
         for node in nodes_db_data:
@@ -1381,6 +1391,16 @@ def get_pterodactyl_nodes():
         if conn and conn.is_connected():
             conn.close()
     return nodes
+
+def sanitize_url(url):
+    """Remove trailing slash from a URL if it exists."""
+    return url.rstrip('/')
+
+# Ensure exchange_rates.json exists
+if not os.path.exists('exchange_rates.json'):
+    with open('exchange_rates.json', 'w') as f:
+        json.dump({}, f)
+    print("Created 'exchange_rates.json' with default empty content.")
 
 if __name__ == '__main__':
     if not os.path.exists(USERS_FILE) or os.stat(USERS_FILE).st_size == 0:
