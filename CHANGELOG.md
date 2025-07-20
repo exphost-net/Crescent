@@ -1,11 +1,12 @@
-## Crescent Alpha Release v0.2.1
+## Crescent Alpha Release v0.2.2
 
-Welcome to Crescent Alpha v.0.2.1!
+Welcome to Crescent Alpha v.0.2.2!
 
 ### What's Changed?
 
 #### Features
-* **Database Port Selection**: Added port selection capability for Pterodactyl and Paymenter database connections in the .env configuration.
+* **Secret Key Storage**: The secret key is now stored in the .env file and generated using a more secure algorithm.
+* **Node Status Fetching**: Node status is now fetched using HTTP/HTTPS requests instead of pings.
 
 ### Security Vulnerabilities
 

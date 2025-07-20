@@ -13,11 +13,29 @@ import threading
 import time
 import traceback
 import socket
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+
+# Handle secret key - generate one if not in .env
+secret_key = os.getenv('SECRET_KEY')
+if not secret_key:
+    # Generate a new secret key and add it to .env
+    import secrets
+    secret_key = secrets.token_hex(32)
+    
+    # Add the secret key to .env file
+    env_path = '.env'
+    with open(env_path, 'a') as f:
+        f.write(f'\nSECRET_KEY={secret_key}\n')
+    
+    print("Generated new SECRET_KEY and added it to .env file.")
+
+app.secret_key = secret_key
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_TYPE'] = 'filesystem'
 app.logger.setLevel(logging.INFO)
@@ -44,38 +62,13 @@ USERS_FILE = 'users.json'
 
 BASE_CURRENCY = os.getenv('BASE_CURRENCY', 'USD')
 
-class CachedFile:
-    def __init__(self, path, ttl=60):
-        self.path = path
-        self.ttl = ttl
-        self._data = None
-        self._last_load = 0
-        self._lock = threading.Lock()
-    def get(self):
-        now = time.time()
-        with self._lock:
-            if self._data is None or now - self._last_load > self.ttl:
-                try:
-                    with open(self.path, 'r') as f:
-                        self._data = json.load(f)
-                except Exception:
-                    self._data = {}
-                self._last_load = now
-            return self._data
-    def set(self, data):
-        with self._lock:
-            with open(self.path, 'w') as f:
-                json.dump(data, f, indent=4)
-            self._data = data
-            self._last_load = time.time()
-
-exchange_rates_cache = CachedFile('exchange_rates.json', ttl=60)
-costs_cache = CachedFile('costs.json', ttl=60)
-extra_income_cache = CachedFile('extra_income.json', ttl=60)
-users_cache = CachedFile('users.json', ttl=60)
-
 def get_current_exchange_rates():
-    data = exchange_rates_cache.get()
+    try:
+        with open('exchange_rates.json', 'r') as f:
+            data = json.load(f)
+    except:
+        data = {}
+    
     rates = {}
     for currency, info in data.items():
         if isinstance(info, dict):
@@ -112,7 +105,12 @@ def convert_currency(amount, from_currency, to_currency, exchange_rates):
         return Decimal('0.00')
 
 def load_costs(file_path):
-    data = costs_cache.get()
+    try:
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+    except:
+        data = {}
+    
     machine_costs = {}
     misc_costs = {}
     for k, v in data.get('machine_costs', {}).items():
@@ -136,20 +134,31 @@ def save_costs(file_path, machine_costs, misc_costs):
         },
         'misc_costs': {k: float(v) for k, v in misc_costs.items()}
     }
-    costs_cache.set(data)
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=4)
 
 def load_extra_income(file_path):
-    data = extra_income_cache.get()
+    try:
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+    except:
+        data = {}
     return {k: to_decimal(v) for k, v in data.items()}
 
 def save_extra_income(file_path, income_details):
-    extra_income_cache.set({k: float(v) for k, v in income_details.items()})
+    with open(file_path, 'w') as f:
+        json.dump({k: float(v) for k, v in income_details.items()}, f, indent=4)
 
 def load_users():
-    return users_cache.get()
+    try:
+        with open(USERS_FILE, 'r') as f:
+            return json.load(f)
+    except:
+        return {}
 
 def save_users(users):
-    users_cache.set(users)
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=4)
 
 def to_decimal(value):
     if value is None:
@@ -227,12 +236,13 @@ def incomings():
         if not exchange_rates:
             flash("Failed to load exchange rates. Income conversion may be inaccurate.", 'warning')
 
-        cur.execute("SELECT id, product_id, user_id, status, price, currency_code, expires_at, coupon_id FROM services WHERE status IN ('active', 'suspended')")
+        cur.execute("""
+            SELECT s.id, s.product_id, s.user_id, s.status, s.price, s.currency_code, s.expires_at, s.coupon_id, u.email as user_email
+            FROM services s 
+            LEFT JOIN users u ON s.user_id = u.id 
+            WHERE s.status IN ('active', 'suspended')
+        """)
         services = cur.fetchall()
-
-        cur.execute("SELECT id, email FROM users")
-        users_paymenter = cur.fetchall()
-        user_email_map = {u['id']: u['email'] for u in users_paymenter}
         
         cur.execute("SELECT id, type, value FROM coupons")
         coupons = {c['id']: c for c in cur.fetchall()}
@@ -248,7 +258,6 @@ def incomings():
             node_map = {n['id']: n['name'] for n in pcur.fetchall()}
             pcur.execute("SELECT uuid, name, node_id, external_id FROM servers")
             srv_lookup = {s['external_id']: s for s in pcur.fetchall()}
-
 
         for svc in services:
             price = to_decimal(svc['price'])
@@ -268,8 +277,6 @@ def incomings():
                     fixed_off = Decimal(str(coupon['value']))
                     discounted_price = max(price - fixed_off, Decimal('0.00'))
                     coupon_discount = f"{BASE_CURRENCY} {fixed_off} OFF"
-            else:
-                coupon_discount = None
 
             converted_price = convert_currency(discounted_price, service_currency, BASE_CURRENCY, exchange_rates)
 
@@ -281,7 +288,7 @@ def incomings():
             svc['currency'] = BASE_CURRENCY
             svc['original_price_str'] = f"{price:.2f} {service_currency}"
 
-            user_email_for_service = user_email_map.get(svc['user_id'], 'Unknown User')
+            user_email_for_service = svc.get('user_email', 'Unknown User')
 
             srv = srv_lookup.get(str(svc['id']))
 
@@ -328,7 +335,6 @@ def incomings():
         profit = profit.quantize(Decimal('0.01'), ROUND_HALF_UP)
         unmatched_services_total = unmatched_services_total.quantize(Decimal('0.01'), ROUND_HALF_UP)
 
-        exchange_rates = get_current_exchange_rates()
         currency_symbol = exchange_rates.get(BASE_CURRENCY, {}).get("symbol", BASE_CURRENCY)
 
         return render_template('incomings.html',
@@ -559,11 +565,6 @@ def dashboard_page():
 
         cur.execute("SELECT id, product_id, user_id, status, price, currency_code, expires_at FROM services WHERE status IN ('active', 'suspended')")
         services = cur.fetchall()
-        print("DASHBOARD DEBUG: Services data from Paymenter:", services)
-
-        cur.execute("SELECT id, email FROM users")
-        users_paymenter = cur.fetchall()
-        user_email_map = {u['id']: u['email'] for u in users_paymenter}
 
         pconn = get_db_connection(pterodactyl_config, "Pterodactyl")
         if not pconn:
@@ -593,12 +594,9 @@ def dashboard_page():
         nodes_db_data = pcur.fetchall()
         node_id_to_info = {n['id']: n for n in nodes_db_data}
         node_id_to_name = {n['id']: n['name'] for n in nodes_db_data}
-        print("DASHBOARD DEBUG: Node ID to Info Map from Pterodactyl:", node_id_to_info)
-        print("DASHBOARD DEBUG: Node ID to Name Map from Pterodactyl:", node_id_to_name)
 
         pcur.execute("SELECT uuid, id, node_id, memory, disk, external_id FROM servers")
         servers_data = pcur.fetchall()
-        print("DASHBOARD DEBUG: Servers data from Pterodactyl (including external_id):", servers_data)
 
         total_servers = len(servers_data)
         
@@ -634,24 +632,17 @@ def dashboard_page():
                 logging.warning(f"Non-numeric key found in machine_costs that cannot be mapped to a node ID: {node_id_str}. Skipping.")
                 pass
 
+        server_lookup = {str(s.get('external_id')): s for s in servers_data}
+
         for svc in services:
             price = to_decimal(svc['price'])
             service_currency = svc.get('currency_code', BASE_CURRENCY)
             
             converted_price = convert_currency(price, service_currency, BASE_CURRENCY, exchange_rates)
             if converted_price == Decimal('0.00') and price != Decimal('0.00'):
-                logging.warning(f"Could not convert service {svc['id']} price {price} {service_currency} to {BASE_CURRENCY}. Skipping this service for dashboard income calculation.")
-                print(f"DASHBOARD DEBUG: Skipping service {svc['id']} (product {svc.get('product_id', 'N/A')}) due to conversion failure to zero.")
-                continue
+                logging.warning(f"Could not convert service {svc['id']} price {price} {service_currency} to {BASE_CURRENCY}. Skipping")
 
-            srv = next((s for s in servers_data if str(s.get('external_id')) == str(svc['id'])), None)
-
-            print(f"\nDASHBOARD DEBUG: Processing Paymenter Service ID: {svc['id']} (Product ID: {svc.get('product_id', 'N/A')}), Price: {price} {service_currency} (Converted: {converted_price} {BASE_CURRENCY})")
-            if srv:
-                node_name_for_service = node_id_to_name.get(srv['node_id'], 'Unknown Node (ID not found)')
-                print(f"    MATCHED to Pterodactyl Server UUID: {srv['uuid']}, Server ID: {srv['id']}, Node ID: {srv['node_id']}, Node Name: {node_name_for_service}")
-            else:
-                print(f"    UNMATCHED: No Pterodactyl server found for Paymenter service ID {svc['id']} (external_id).")
+            srv = server_lookup.get(str(svc['id']))
 
             if srv:
                 node_id = srv['node_id']
@@ -672,6 +663,28 @@ def dashboard_page():
         total_income = total_income.quantize(Decimal('0.01'), ROUND_HALF_UP)
         profit = profit.quantize(Decimal('0.01'), ROUND_HALF_UP)
 
+        def check_node_status(node_id, node_name, panel_url, headers):
+            panel_node_url = f"{panel_url}/api/application/nodes/{node_id}"
+            try:
+                panel_response = requests.get(panel_node_url, headers=headers, timeout=3)
+                panel_response.raise_for_status()
+                node_data = panel_response.json().get('attributes', {})
+                
+                wings_fqdn = node_data.get('fqdn')
+                wings_port = node_data.get('daemon_listen', 8080)
+                
+                if wings_fqdn:
+                    wings_url = f"https://{wings_fqdn}:{wings_port}"
+                    try:
+                        wings_response = requests.get(wings_url, timeout=2, verify=False)
+                        if wings_response.status_code == 401:
+                            return True
+                    except requests.exceptions.RequestException:
+                        pass
+                return False
+            except Exception:
+                return False
+
         for node in nodes_db_data:
             node_name = node['name']
             node_id = node['id']
@@ -683,37 +696,8 @@ def dashboard_page():
             memory_gb = memory_mb / 1024
 
             is_online = False
-            
             if api_status_check_enabled:
-                panel_node_url = f"{panel_url}/api/application/nodes/{node_id}"
-                try:
-                    panel_response = requests.get(panel_node_url, headers=headers, timeout=5)
-                    panel_response.raise_for_status()
-                    node_data = panel_response.json().get('attributes', {})
-                    wings_url = node_data.get('fqdn') or node_data.get('ip')
-                    wings_port = node_data.get('daemon_listen')
-
-                    if wings_url and wings_port is not None:
-                        try:
-                            sock = socket.create_connection((wings_url, int(wings_port)), timeout=1)
-                            is_online = True
-                            sock.close()
-                        except (socket.error, socket.timeout) as e:
-                            is_online = False
-                            logging.warning(f"TCP connection to {wings_url}:{wings_port} for node {node_name}: Failed ({e})")
-                    elif wings_url:
-                        is_online = False 
-                    else:
-                        logging.warning(f"Could not find FQDN or IP for node {node_name} (ID: {node_id}) from Pterodactyl API for Wings status.")
-
-                except requests.exceptions.Timeout:
-                    logging.warning(f"Request to Pterodactyl API for node {node_name} (ID: {node_id}) timed out.")
-                except requests.exceptions.ConnectionError:
-                    logging.warning(f"Connection error to Pterodactyl API for node {node_name} (ID: {node_id}). API might be down or unreachable.")
-                except requests.exceptions.HTTPError as e:
-                    logging.warning(f"HTTP error from Pterodactyl API for node {node_name} (ID: {node_id}): {e.response.status_code} - {e.response.text}")
-                except Exception as e:
-                    logging.warning(f"Failed to fetch Panel details or check Wings status for node {node_name} (ID: {node_id}): {e}")
+                is_online = check_node_status(node_id, node_name, panel_url, headers)
 
             node_cost = node_costs_by_id.get(node_id, Decimal('0.00'))
             node_profit = revenue - node_cost
@@ -756,7 +740,6 @@ def dashboard_page():
         memory_percent = (total_allocated_memory_mb / total_available_memory_mb) * 100 if total_available_memory_mb > 0 else 0
         disk_percent = (total_allocated_disk_mb / total_available_disk_mb) * 100 if total_available_disk_mb > 0 else 0
 
-        exchange_rates = get_current_exchange_rates()
         currency_symbol = exchange_rates.get(BASE_CURRENCY, {}).get("symbol", "$")
 
         return render_template('dashboard.html',
@@ -788,11 +771,9 @@ def dashboard_page():
                                total_servers=total_servers,
                                top_nodes=top_nodes_with_info,
                                total_allocated_memory_gb=total_allocated_memory_gb,
-                               total_available_memory_gb=total_available_memory_gb,
-                               memory_percent=memory_percent,
+                               total_available_memory_gb=total_available_memory_gb, memory_percent=memory_percent,
                                total_allocated_disk_gb=total_allocated_disk_gb,
-                               total_available_disk_gb=total_available_disk_gb,
-                               disk_percent=disk_percent,
+                               total_available_disk_gb=total_available_disk_gb, disk_percent=disk_percent,
                                base_currency=BASE_CURRENCY,
                                is_admin_status=user_is_admin_status)
     except Exception as e:
@@ -808,11 +789,9 @@ def dashboard_page():
                                total_servers=total_servers,
                                top_nodes=top_nodes_with_info,
                                total_allocated_memory_gb=total_allocated_memory_gb,
-                               total_available_memory_gb=total_available_memory_gb,
-                               memory_percent=memory_percent,
+                               total_available_memory_gb=total_available_memory_gb, memory_percent=memory_percent,
                                total_allocated_disk_gb=total_allocated_disk_gb,
-                               total_available_disk_gb=total_available_disk_gb,
-                               disk_percent=disk_percent,
+                               total_available_disk_gb=total_available_disk_gb, disk_percent=disk_percent,
                                base_currency=BASE_CURRENCY,
                                is_admin_status=user_is_admin_status)
     finally:
@@ -1134,7 +1113,6 @@ def update_email():
         return render_template('settings.html', email=session.get('user_email'))
 
     users[new_email] = users.pop(session['user_email'])
-    session['user_email'] = new_email
     save_users(users)
     flash('Email updated successfully!', 'success')
     return render_template('settings.html', email=session.get('user_email'))
